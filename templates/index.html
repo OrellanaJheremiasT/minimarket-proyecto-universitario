@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Minimarket · Inventario y ventas</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body data-stock-bajo="{{ stock_bajo }}">
+  <a class="skip-link" href="#contenido">Ir al contenido</a>
+  <aside class="sidebar">
+    <a class="brand" href="#resumen">
+      <span class="brand-icon" aria-hidden="true"><i class="bi bi-shop"></i></span>
+      <span>Minimarket<small>Inventario y ventas</small></span>
+    </a>
+    <nav aria-label="Navegación principal">
+      <span class="nav-label">Operaciones</span>
+      <a href="#resumen" data-view="resumen"><i class="bi bi-grid-1x2" aria-hidden="true"></i>Resumen</a>
+      <a href="#productos" data-view="productos"><i class="bi bi-box-seam" aria-hidden="true"></i>Inventario</a>
+      <a href="#venta" data-view="venta"><i class="bi bi-cart3" aria-hidden="true"></i>Nueva venta</a>
+      <a href="#historial" data-view="historial"><i class="bi bi-clock-history" aria-hidden="true"></i>Historial</a>
+      <span class="nav-label">Catálogos</span>
+      <a href="#categorias" data-view="categorias"><i class="bi bi-tags" aria-hidden="true"></i>Categorías</a>
+      <a href="#proveedores" data-view="proveedores"><i class="bi bi-truck" aria-hidden="true"></i>Proveedores</a>
+      <a href="#clientes" data-view="clientes"><i class="bi bi-people" aria-hidden="true"></i>Clientes</a>
+    </nav>
+    <div class="db-status" id="db-status" data-status="pending" role="status">
+      <i class="bi bi-database" aria-hidden="true"></i>
+      <span>SQL Server<small id="db-label">Comprobando conexión…</small></span>
+      <span class="db-dot" aria-hidden="true"></span>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header class="topbar">
+      <span>Gestión del minimarket</span>
+      <button class="button button-quiet" id="actualizar" type="button">
+        <i class="bi bi-arrow-repeat" aria-hidden="true"></i> Actualizar
+      </button>
+    </header>
+
+    <main id="contenido">
+      <div class="page-heading">
+        <div>
+          <h1 id="titulo">Resumen de operaciones</h1>
+          <p id="descripcion">Consulta el inventario, las alertas y las ventas recientes.</p>
+        </div>
+        <a class="button button-primary" href="#venta" id="accion-pagina">
+          <i class="bi bi-plus-lg" aria-hidden="true"></i><span>Nueva venta</span>
+        </a>
+      </div>
+      <div id="aviso" class="notice" role="status" aria-live="polite" hidden></div>
+
+      <section data-panel="resumen" aria-labelledby="titulo">
+        <div class="metrics" aria-label="Indicadores">
+          <article class="metric">
+            <span class="metric-icon mint"><i class="bi bi-box-seam" aria-hidden="true"></i></span>
+            <div><span>Productos registrados</span><strong id="total-productos">—</strong></div>
+          </article>
+          <article class="metric">
+            <span class="metric-icon amber"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
+            <div><span>Alertas de inventario</span><strong id="total-alertas">—</strong></div>
+          </article>
+          <article class="metric">
+            <span class="metric-icon blue"><i class="bi bi-receipt" aria-hidden="true"></i></span>
+            <div><span>Ventas de hoy</span><strong id="ventas-hoy">—</strong></div>
+          </article>
+          <article class="metric">
+            <span class="metric-icon mint"><i class="bi bi-currency-exchange" aria-hidden="true"></i></span>
+            <div><span>Ingresos de hoy</span><strong id="ingresos-hoy">—</strong></div>
+          </article>
+        </div>
+
+        <div class="summary-grid">
+          <article class="card">
+            <div class="card-header">
+              <div><h2>Actividad de ventas</h2><p>Operaciones registradas por día</p></div>
+              <span class="subtle-tag">Últimos 7 días</span>
+            </div>
+            <div id="grafico" class="chart" aria-label="Gráfico de ventas por día"></div>
+            <a class="text-link card-link" href="#historial">Ver historial <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+          </article>
+          <article class="card">
+            <div class="card-header"><div><h2>Alertas de stock</h2><p>Productos con {{ stock_bajo }} unidades o menos</p></div></div>
+            <div id="lista-alertas" class="stock-alerts"></div>
+            <a class="text-link card-link" href="#productos">Ir al inventario <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+          </article>
+        </div>
+      </section>
+
+      <section data-panel="productos" aria-labelledby="titulo" hidden>
+        <div class="card">
+          <div class="card-header with-filters"><div><h2>Productos</h2><p id="recuento-productos"></p></div>
+            <button class="button button-primary" type="button" id="nuevo-producto"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo producto</button>
+          </div>
+          <form id="filtros-productos" class="filters">
+            <label>Buscar producto<input name="q" type="search" placeholder="Ej. Leche" maxlength="100"></label>
+            <label>Categoría<select name="categoria"></select></label>
+            <label>Stock<select name="nivel"><option value="">Todos</option><option value="bajo">Stock bajo</option><option value="agotado">Agotado</option></select></label>
+            <button class="button button-outline" type="submit"><i class="bi bi-search" aria-hidden="true"></i> Filtrar</button>
+            <button class="button button-quiet" type="reset">Limpiar</button>
+          </form>
+          <div class="table-wrap" id="lista-productos"></div>
+        </div>
+      </section>
+
+      <section data-panel="venta" aria-labelledby="titulo" hidden>
+        <div class="operation-grid">
+          <article class="card">
+            <div class="card-header"><div><h2>Detalle de la venta</h2><p>Selecciona los productos y sus cantidades.</p></div></div>
+            <form class="filters sale-inputs" id="form-linea">
+              <label>Producto<select name="id_producto" required></select></label>
+              <label>Cantidad<input name="cantidad" type="number" value="1" min="1" step="1" required></label>
+              <button class="button button-outline" type="submit"><i class="bi bi-plus-lg" aria-hidden="true"></i> Agregar</button>
+            </form>
+            <div class="table-wrap" id="lista-carrito"></div>
+          </article>
+          <article class="card checkout">
+            <div class="card-header"><div><h2>Confirmar venta</h2></div></div>
+            <form id="form-venta" class="stacked">
+              <label>Cliente<select name="id_cliente" required></select></label>
+              <div class="checkout-total"><span>Total estimado</span><strong id="total-carrito">S/ 0.00</strong></div>
+              <p class="muted">El total y el stock se comprueban al registrar.</p>
+              <button class="button button-primary" type="submit" id="confirmar">Registrar venta</button>
+            </form>
+          </article>
+        </div>
+      </section>
+
+      <section data-panel="historial" aria-labelledby="titulo" hidden>
+        <div class="card">
+          <div class="card-header"><div><h2>Ventas registradas</h2><p id="recuento-ventas"></p></div></div>
+          <form class="filters" id="filtros-ventas">
+            <label>Desde<input name="desde" type="date"></label>
+            <label>Hasta<input name="hasta" type="date"></label>
+            <button class="button button-outline" type="submit"><i class="bi bi-search" aria-hidden="true"></i> Filtrar</button>
+            <button class="button button-quiet" type="reset">Limpiar</button>
+          </form>
+          <div class="table-wrap" id="lista-ventas"></div>
+        </div>
+      </section>
+
+      {% for tipo, singular, plural, campos in [
+        ('categorias', 'categoría', 'Categorías', [('descripcion', 'Descripción', 255)]),
+        ('proveedores', 'proveedor', 'Proveedores', [('telefono', 'Teléfono', 30), ('direccion', 'Dirección', 255)]),
+        ('clientes', 'cliente', 'Clientes', [('telefono', 'Teléfono', 30)])
+      ] %}
+      <section data-panel="{{ tipo }}" aria-labelledby="titulo" hidden>
+        <div class="operation-grid catalog-grid">
+          <article class="card">
+            <div class="card-header"><h2>{{ plural }} registrados</h2></div>
+            <div class="table-wrap" id="lista-{{ tipo }}"></div>
+          </article>
+          <article class="card">
+            <div class="card-header"><h2>Registrar {{ singular }}</h2></div>
+            <form class="stacked catalog-form" data-catalog="{{ tipo }}">
+              <label>Nombre<input name="nombre" type="text" maxlength="100" required></label>
+              {% for clave, etiqueta, limite in campos %}
+              <label>{{ etiqueta }}<input name="{{ clave }}" type="{{ 'tel' if clave == 'telefono' else 'text' }}" maxlength="{{ limite }}"></label>
+              {% endfor %}
+              <button class="button button-primary" type="submit">Guardar</button>
+            </form>
+          </article>
+        </div>
+      </section>
+      {% endfor %}
+    </main>
+  </div>
+
+  <dialog id="dialogo-producto" aria-labelledby="titulo-producto">
+    <div class="card-header">
+      <h2 id="titulo-producto">Nuevo producto</h2>
+      <button class="icon-button" type="button" aria-label="Cerrar" data-cerrar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </div>
+    <form class="stacked" id="form-producto">
+      <label>Nombre<input name="nombre" maxlength="100" required></label>
+      <label>Categoría<select name="id_categoria" required></select></label>
+      <label>Proveedor<select name="id_proveedor" required></select></label>
+      <div class="form-row">
+        <label>Precio (S/)<input name="precio" type="number" min="0.01" max="9999999999.99" step="0.01" required></label>
+        <label id="campo-stock">Stock inicial<input name="stock" type="number" min="0" max="2147483647" step="1" required></label>
+      </div>
+      <p id="error-producto" class="notice" data-type="error" role="alert" hidden></p>
+      <button class="button button-primary" type="submit">Guardar producto</button>
+    </form>
+  </dialog>
+
+  <dialog id="dialogo-venta" aria-labelledby="titulo-detalle">
+    <div class="card-header">
+      <div><h2 id="titulo-detalle">Detalle de venta</h2><p id="datos-detalle"></p></div>
+      <button class="icon-button" type="button" aria-label="Cerrar" data-cerrar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </div>
+    <div class="table-wrap" id="lineas-detalle"></div>
+    <div class="detail-total checkout-total"><span>Total registrado</span><strong id="total-detalle"></strong></div>
+  </dialog>
+</body>
+</html>
